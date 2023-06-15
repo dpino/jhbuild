@@ -21,6 +21,7 @@ __metaclass__ = type
 
 import os
 import shutil
+import subprocess
 
 from jhbuild.errors import CommandError
 from jhbuild.modtypes import \
@@ -53,6 +54,7 @@ class CMakeModule(MakeModule, NinjaModule, DownloadableModule):
         self.supports_install_destdir = True
         self.use_ninja = True
         self.cmakedir = None
+        self.before_configure = None
 
     def eval_args(self, args):
         args = Package.eval_args(self, args)
@@ -81,6 +83,13 @@ class CMakeModule(MakeModule, NinjaModule, DownloadableModule):
     def do_configure(self, buildscript):
         buildscript.set_action(_('Configuring'), self)
         srcdir = self.get_srcdir(buildscript)
+        if self.before_configure:
+            script = os.path.join(srcdir, self.before_configure)
+            if os.path.exists(script):
+                print("Exists: %s" % script)
+                subprocess.run(script)
+            else:
+                print("DOES NOT exist: '%s'" % script)
         builddir = self.get_builddir(buildscript)
         if os.path.exists(builddir):
             try:
@@ -151,6 +160,7 @@ class CMakeModule(MakeModule, NinjaModule, DownloadableModule):
 
     def xml_tag_and_attrs(self):
         return 'cmake', [('id', 'name', None),
+                         ('before-configure', 'before_configure', None),
                          ('skip-install', 'skip_install_phase', False),
                          ('use-ninja', 'use_ninja', True),
                          ('cmakedir', 'cmakedir', None),
@@ -185,6 +195,8 @@ def parse_cmake(node, config, uri, repositories, default_repo):
             instance.use_ninja = False
     if node.hasAttribute('cmakedir'):
         instance.cmakedir = node.getAttribute('cmakedir')
+    if node.hasAttribute('before-configure'):
+        instance.before_configure = node.getAttribute('before-configure')
 
     instance.dependencies.append('cmake')
     if instance.use_ninja:
